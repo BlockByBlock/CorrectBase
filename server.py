@@ -17,8 +17,8 @@ conn, addr = s.accept()
 
 while(1):
 
-	print "conn info: ", conn
+	#print "conn info: ", conn
 	objrcv = pickle.loads ( conn.recv ( 1024 ) )
 	print "conn recv: ", objrcv
-	print "conn from: ", addr
-	print objrcv[1]
+	#print "conn from: ", addr
+	#print objrcv[1]
