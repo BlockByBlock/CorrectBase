@@ -1,6 +1,5 @@
 import serial 
 import re
-import pickle
 import socket
 
 ser = serial.Serial()
@@ -45,10 +44,8 @@ while(1):
 
 		satinfo = str(satnum + idrss)
 		print(satinfo)
-
-		#dList = [satnum, final_satid, final_satrss]	
-		#objList = pickle.dumps ( dList )
-		#client.send(objList)
+		
+		#client.send(satinfo)
 
 #client.close()
 
