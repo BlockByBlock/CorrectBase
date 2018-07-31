@@ -1,55 +1,28 @@
-# BaseReader
+# Differential GNSS and RTK - Work In Progress 
 
-### Setting up the M8P GPS Base Station
+##### Hello There!
 
-1. Launch u-center, disable NMEA in 'View' > 'Message View'
-2. Enable '03 (Satellite Data)' under 'NMEA' in 'View' > 'Message View'
-
-3. Set the TCP IP and Port on server.py
-    ```
-    $ python server
-    ```
-
-4. Set the TCP IP, TCP Port, Serial Port on sgps.py
-    ```
-    $ python sgps.py
-    ```
-    
-### GPS Format
-
-1. Number of satellites
-2. Satellite ID (4 GPS and 2 others - USE only)
-3. Satellite RSS (based on the 6 ID-ed satellites)
+This readme shares the design of Differential GNSS and future integration of the correction measurements to be transmitted over DDS or as a ROS2 service. 
 
 
-### Satellite Numbering
 
-GPS: 1-32
-Beidou: 159-163,33-64
-IMES: 173-182
-GLONASS: 65-96, 255
-SBAS: 120-158
-Galileo: 211-246
-QZSS: 193-197
+### Theory of operation 
 
-### PUBX Format
+Two methods of GNSS correction: Differential GNSS and Real Time Kinematic (RTK). Both methods correct the position through error calculation from a fixed based station. The set of error correction values are transmitted over a network/data link to the Rover to achieve a more accurate solution.
 
-Message Structure:
-    ```
-    $PUBX,03,GT{,sv,s,az,el,cno,lck},*cs<CR><LF>
-    ```
-Example:
-    ```
-    $PUBX,03,11,23,-,,,45,010,29,-,,,46,013,07,-,,,42,015,08,U,067,31,42,025,10,U,195,33,46,026,18,U,32
-    6,08,39,026,17,-,,,32,015,26,U,306,66,48,025,27,U,073,10,36,026,28,U,089,61,46,024,15,-,,,39,014*0D
-    ```
-1. $PUBX - header
-2. msgID - 03
-3. Number of satellite
-4. Satellite ID
-5. Satellite Status (U,e,-)
-6. Azimuth (0-359)
-7. elevation (0-90)
-8. Signal strength (0-99)
-9. Clock lock (0-64)
+For the differences between DGNSS and RTK, refer to the quotes below 
 
+> "The major difference between DGNSS and RTK methods is the approach used to calculate the error correction terms. DGNSS uses a transmitted code based difference to determine the error terms, which is a mostly logical layer approach; RTK instead leverages the cyclic nature of the carrier wave to determine the errors, which is a more physical layer approach." - Paul Piong
+
+> "The configuration of Differential GNSS (DGNSS) and RTK systems are similar in that both methods require a base station receiver setup at a known location, a rover receiver that gets corrections from the base station and a communication link between the two receivers. The difference is that RTK (a carrier phase method) is significantly more accurate than DGNSS (a code-based method).
+>
+> The advantage of DGNSS is that it is useful over a longer baseline (distance between base station and rover receivers) and a DGNSS system is less expensive. The technology required to achieve the higher accuracy of RTK performance makes the cost of a RTK-capable receiver higher than one that is DGNSS-capable only." - [Novatel](https://www.novatel.com/an-introduction-to-gnss/chapter-5-resolving-errors/gnss-data-post-processing/)
+
+
+
+### Design Notes
+
+- Change from Python to CPP11/14
+- Consider Middleware for transportation (DDS? ROS2? ROS?)
+- Use of open source RTKLIB library to accept packages from base station and rover unit
+- Use of serial library (LibSerial) to read packages from base station and rover unit's serial port
