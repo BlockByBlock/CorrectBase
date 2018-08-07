@@ -6,6 +6,30 @@ This readme shares the design of Differential GNSS and future integration of the
 
 
 
+### Installation
+
+Installing of RTKexplorer's RTKLIB
+
+```
+$ git submodule update --init --recursive
+$ cd ~BaseReader/RTKLIB/apps && make
+
+# For invoking rtkrcv directly from bash instead of using full path
+$ sudo make install
+```
+
+
+
+### Configuration
+
+To configure the uBlox receiver through u-center -  [Ublox M8P Configuration](UbloxConfig/configuration.md)
+
+
+
+------
+
+
+
 ### Theory of operation 
 
 Two methods of GNSS correction: Differential GNSS and Real Time Kinematic (RTK). Both methods correct the position through error calculation from a fixed based station. The set of error correction values are transmitted over a network/data link to the Rover to achieve a more accurate solution.
@@ -20,9 +44,34 @@ For the differences between DGNSS and RTK, refer to the quotes below
 
 
 
+------
+
+
+
 ### Design Notes
 
 - Change from Python to CPP11/14
 - Consider Middleware for transportation (DDS? ROS2? ROS?)
 - Use of open source RTKLIB library to accept packages from base station and rover unit
+  - 6 Aug - Using RTKexplorer's RTKLIB which is updated for use with cheaper RTK units
+  - The version of RTKexplorer's RTKLIB used is b29d (7 Aug 2018)
 - Use of serial library (LibSerial) to read packages from base station and rover unit's serial port
+- To make use of 1005, 1077 (GPS), 1087 (GLONASS), 1127 (Beidou), 4072 (Moving baseline) RTCM3 correction via UBX-CFG-MSG
+- RTKLIB over TCP/IP
+  - Reduce dependency on built-in radio transmission
+  - Development architecture
+    - Laptop runs RTKLIB and sends correction over router
+    - Laptop is connected to C94-M8P through a serial port
+- RTKLIB over NTRIP (Networked Transport of RTCM over Internet Protocol)
+  - Online stream of correction message
+
+
+
+### Other notes
+
+- [RTKNAVI](http://rtkexplorer.com/getting-started-with-rtknavi-2/)
+- [Configuring GPS receiver](http://rtkexplorer.com/configuring-the-gps-receiver/)
+- [RTKexplorer - Getting Started](http://rtkexplorer.com/how-to/posts-getting-started/)
+- [PX4 - GPS Driver](https://github.com/PX4/GpsDrivers)
+- [UBX-M8P-2 ROS-MAVROS](https://github.com/AlexisTM/rtk_ros)
+
