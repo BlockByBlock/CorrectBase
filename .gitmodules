@@ -1,0 +1,3 @@
+[submodule "RTKLIB"]
+	path = RTKLIB
+	url = https://github.com/rtklibexplorer/RTKLIB
