@@ -1,6 +1,3 @@
-[submodule "RTKLIB"]
-	path = RTKLIB
-	url = https://github.com/rtklibexplorer/RTKLIB
 [submodule "libserial"]
 	path = libserial
 	url = https://github.com/BlockByBlock/libserial
