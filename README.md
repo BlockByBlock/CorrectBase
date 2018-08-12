@@ -6,20 +6,6 @@ This readme shares the design of RTK GNSS and future integration of the correcti
 
 
 
-### Installation
-
-Installing of RTKexplorer's RTKLIB 
-
-```
-$ git submodule update --init --recursive
-$ cd ~BaseReader/RTKLIB/apps && make
-
-# For invoking rtkrcv directly from bash instead of using full path
-$ sudo make install
-```
-
-
-
 ### Documentation
 
 - To configure the uBlox receiver through u-center -  [Ublox M8P Configuration](documents/configuration.md)
@@ -52,20 +38,27 @@ For the differences between DGNSS and RTK, refer to the quotes below
 
 ### Design Notes
 
-- Change from Python to CPP11/14
-- Consider Middleware for transportation (DDS? ROS2? ROS?)
-- Use of open source RTKLIB library to accept packages from base station and rover unit
-  - 6 Aug - Using RTKexplorer's RTKLIB which is updated for use with cheaper RTK units
-  - The version of RTKexplorer's RTKLIB used is b29d (7 Aug 2018)
-- Use of serial library (LibSerial) to read packages from base station and rover unit's serial port
-- RTKLIB over TCP/IP
+- [x] Use of open source RTKLIB library to accept packages from base station and rover unit    :x: To port over to PX4 GPSdriver 
+  - [x] 6 Aug - Using RTKexplorer's RTKLIB which is updated for use with cheaper RTK units
+  - [x] The version of RTKexplorer's RTKLIB used is b29d (7 Aug 2018)
+
+❌ To port over to PX4 - GPSdriver
+
+- [x] Use of serial library (LibSerial) to read packages from base station and rover unit's serial port
+
+- [ ] RTCM over TCP/IP     
+
   - Reduce dependency on built-in radio transmission
-  - Development architecture
-    - Laptop runs RTKLIB and sends correction over router
-    - Laptop is connected to C94-M8P through a serial port
-- RTKLIB over NTRIP (Networked Transport of RTCM over Internet Protocol)
-  - Online stream of correction message
-- Consider the use of ubx files in [PX4 - GPS Driver](https://github.com/PX4/GpsDrivers)
+
+  - Laptop runs CorrectBase and sends correction over TCP/IP
+
+  - Laptop is connected to M8P through a serial port
+
+    
+
+- [ ] NTRIP (Networked Transport of RTCM over Internet Protocol)
+
+- [ ] Consider the use of ubx files in [PX4 - GPS Driver](https://github.com/PX4/GpsDrivers)
 
 
 

@@ -2,6 +2,20 @@
 
 Using str2str to translate uBlox raw messages into RTCM3 messages and send out as NTRIP 
 
+### Installation
+
+Installing of RTKexplorer's RTKLIB 
+
+```
+$ git submodule update --init --recursive
+$ cd ~BaseReader/RTKLIB/apps && make
+
+# For invoking rtkrcv directly from bash instead of using full path
+$ sudo make install
+```
+
+
+
 To run
 
 ```

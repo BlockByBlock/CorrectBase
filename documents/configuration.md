@@ -6,7 +6,7 @@
 
 
 
-### Steps
+### Steps for use with RTKLIB
 
 ##### Configuring receiver transmitted messages
 
