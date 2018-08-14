@@ -1,0 +1,56 @@
+syntax = "proto2";
+
+package correctbase;
+
+message SatInfo {
+  required fixed64 timestamp = 1	// time since system start in ms
+	optional fixed32 MAX_SAT = 2
+
+  optional fixed32 count = 3	// num of satellites available in info
+  optional fixed32[MAX_SAT] svid = 4	// space vehicle id
+  optional fixed32[MAX_SAT] used = 5	// 0: not used, 1: used
+  optional fixed32[MAX_SAT] elevation = 6	// Elevation (0: right on top of receive, 90: on the horizon) of sat
+  optional fixed32[MAX_SAT] azimuth = 7	// Direction of sat, 0: 0 deg, 255: 360 deg
+  optional fixed32[MAX_SAT] snr = 8	// dBHz, SNR of sat, range 0-99
+}
+
+meesage gpsPosition {
+	// GPS position in WGS84 coordinates.
+
+	// The field 'timestamp' is for the position & velocity (microseconds)
+  required fixed64 timestamp = 1	// time since system start (microseconds)
+  optional sint32 timestamp_time_relative = 2	// timestamp + timestamp_time_relative = Time of the UTC timestamp since system start (ms)
+	optional uint64 time_utc_usec = 3	// Timestamp (microseconds, UTC), this is the timestamp which comes from the gps module. It might be unavailable right after cold start, indicated by a value of 0
+
+  optional fixed32 fix_type = 4	// 0-1: no fix, 2: 2D fix, 3: 3D fix, 4: RTCM code differential, 5: Real-Time Kinematic, float, 6: Real-Time Kinematic, fixed, 8: Extrapolated. Some applications will not use the value of this field unless it is at least two, so always correctly fill in the fix
+
+  optional sint32 lat = 5	// lat in 1E-7 degrees
+  optional sint32 lon = 6	// lon in 1E-7 degres
+  optional sint32 alt	= 7 // alt in 1E-3 meters above MSL (mm)
+  optional sint32 alt_ellipsoid = 8	// alt in 1E-3 meters above Ellipsoid (mm)
+
+  optional float s_variance_m_s = 9	// GPS speed accuracy estimate (m/s)
+  optional float c_variance_rad = 10	// GPS course accuracy estimate (rad)
+
+	optional float eph = 11	// GPS horizontal position accuracy (m)
+	optional float epv = 12	// GPS vertical position accuracy (m)
+
+  optional float hdop	= 13 // hdop
+  optional float vdop	= 14 // vdop
+
+  optional sint32 noise_per_ms = 16	// GPS noise per ms
+  optional sint32 jamming_indicator = 17	// indicate jamming occur
+
+  optional float vel_m_s = 18	// GPS ground speed (m/s)
+  optional float vel_n_m_s = 19	// GPS north velocity (m/s)
+  optional float vel_e_m_s = 20	// GPS east velocity (m/s)
+  optional float vel_d_m_s = 21	// GPS down velocity (m/s)
+	
+  optional float cog_rad = 22	// Course over ground (Not heading but direction of movement), -PI..PI, (rad)
+	optional bool vel_ned_valid = 23	// True if NED velocity is valid
+
+  optional fixed32 satellites_used = 15	// Number of satellites used
+
+  optional float heading = 24	// heading in NED. Set to NaN if not set (used for dual antenna GPS), (rad, [-PI, PI])
+
+}
