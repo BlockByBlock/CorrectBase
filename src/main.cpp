@@ -10,5 +10,6 @@
  int main(int argc, char *argv[])
 {
     UBXM8P ubxobj;
+    printf("Done Done Done");
     return 0;
 }
