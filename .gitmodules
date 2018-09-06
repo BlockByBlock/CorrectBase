@@ -1,6 +1,4 @@
 [submodule "libserial"]
 	path = libserial
 	url = https://github.com/BlockByBlock/libserial
-[submodule "GpsDrivers"]
-	path = GpsDrivers
-	url = https://github.com/AlexisTM/GpsDrivers
+
