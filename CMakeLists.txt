@@ -8,6 +8,7 @@ endif()
 
 add_library(ubxdriver
 	src/ubxm8p.cpp
+	src/rtcm.cpp
 )
 
 target_include_directories(ubxdriver
