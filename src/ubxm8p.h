@@ -631,7 +631,6 @@ public:
 
     /**
 	 * Constructor - WIP
-	 * @param interface UART
      * @param gpscallbackptr callback
      * @param callback_user user
      * @param veh_gps_position_s gps_position
@@ -643,7 +642,7 @@ public:
 	 */
     UBXM8P();
 
-    virtual ~UBXM8P();
+    ~UBXM8P();
 
     /**
 	 * Receive and process data
@@ -687,6 +686,14 @@ public:
 	 * Calculate & add checksum for given buffer
 	 */
 	void calcChecksum(const uint8_t *buffer, const uint16_t length, ubx_checksum_t *checksum);
+
+	/**
+	 * set survey-in specs for RTK base station setup (for finding an accurate base station position
+	 * by averaging the position measurements over time).
+	 * @param survey_in_acc_limit minimum accuracy in 0.1mm
+	 * @param survey_in_min_dur minimum duration in seconds
+	 */
+	void setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur);
 
 protected:
     /**
@@ -752,6 +759,8 @@ private:
 	uint8_t	_rx_ck_b{};
 	uint8_t _rate_count_lat_lon{};
 	uint8_t _rate_count_vel{};
+	// ublox Dynamic platform model default 0: portable
+	uint8_t _dyn_model{0};
 	
 	struct vehicle_gps_position_s *_gps_position {nullptr};
 	struct satellite_info_s *_satellite_info {nullptr};
@@ -770,6 +779,13 @@ private:
     OutputMode _output_mode{OutputMode::GPS};
     
     RTCMParsing	*_rtcm_parsing{nullptr};
+
+	/**
+	 * Start or restart the survey-in procees. This is only used in RTCM ouput mode.
+	 * It will be called automatically after configuring.
+	 * @return 0 on success, <0 on error
+	 */
+	int restartSurveyIn();
 
     /**
 	 * Wait for message acknowledge
@@ -813,6 +829,12 @@ private:
 	int payloadRxAdd(const uint8_t b);
 	int payloadRxAddNavSvinfo(const uint8_t b);
 	int payloadRxAddMonVer(const uint8_t b);
+
+	/**
+	 * combines the configure_message_rate & wait_for_ack calls
+	 * @return true on success
+	 */
+	inline bool configureMessageRateAndAck(uint16_t msg, uint8_t rate, bool report_ack_error = false);
 
  };
 

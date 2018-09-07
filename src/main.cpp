@@ -4,12 +4,19 @@
  *   Author: Yeap Bing Cheng <ybingcheng@gmail.com> 
  * 
  ****************************************************************************/
+#include <string>
+#include <iostream>
+#include <chrono>
+#include <thread>
 
- #include "ubxm8p.h"
+#include "base.h"
 
- int main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    UBXM8P ubxobj;
-    printf("Done Done Done");
+    CorrectBase base;
+    base.serialConnect();
+    // base.gpsConnect();
+    // base.operateBase();
+
     return 0;
 }

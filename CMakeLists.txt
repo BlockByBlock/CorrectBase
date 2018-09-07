@@ -6,9 +6,12 @@ if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 14)
 endif()
 
+find_package(LibSerial REQUIRED)
+
 add_library(ubxdriver
 	src/ubxm8p.cpp
 	src/rtcm.cpp
+	src/base.cpp
 )
 
 target_include_directories(ubxdriver
@@ -18,4 +21,4 @@ target_include_directories(ubxdriver
 
 add_executable(main src/main.cpp)
     
-target_link_libraries(main PUBLIC ubxdriver)
+target_link_libraries(main PUBLIC ubxdriver LibSerial::LibSerial)

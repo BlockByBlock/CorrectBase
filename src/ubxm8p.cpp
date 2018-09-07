@@ -19,7 +19,9 @@
  *
  * @see https://www.u-blox.com/sites/default/files/products/documents/u-bloxM8_ReceiverDescrProtSpec_%28UBX-13003221%29_Public.pdf
  */
-
+ 
+#include <unistd.h>
+#include <cmath>
 #include "ubxm8p.h"
 
 #define UBX_CONFIG_TIMEOUT	200		// ms, timeout for waiting ACK
@@ -32,9 +34,21 @@
 #define FNV1_32_INIT	((uint32_t)0x811c9dc5)	// init value for FNV1 hash algorithm
 #define FNV1_32_PRIME	((uint32_t)0x01000193)	// magic prime for FNV1 hash algorithm
 
-UBXM8P::UBXM8P(){};
+UBXM8P::UBXM8P()
+: _survey_in_acc_limit(UBX_TX_CFG_TMODE3_SVINACCLIMIT)
+, _survey_in_min_dur(UBX_TX_CFG_TMODE3_SVINMINDUR)
+{
+	decodeInit();
+	// Not present in normal operation, unless for dual-antenna RTK units
+	_gps_position->heading = NAN;
+};
 
-UBXM8P::~UBXM8P(){};
+UBXM8P::~UBXM8P()
+{
+	if (_rtcm_parsing) {
+		delete (_rtcm_parsing);
+	}
+};
 
 // -1 = error, 0 = no message handled, 1 = message handled, 2 = sat info message handled
 int	UBXM8P::receive(unsigned timeout)
@@ -89,54 +103,275 @@ int	UBXM8P::receive(unsigned timeout)
 
 int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 {
-    _configured = false;
-    _output_mode = output_mode;
-    /* try different baudrates */
+	_configured = false;
+	_output_mode = output_mode;
+	/* try different baudrates */
 	const unsigned baudrates[] = {38400, 57600, 9600, 19200, 115200};
 
-    unsigned baud_i;
-    ubx_payload_tx_cfg_prt_t cfg_prt[2];
-    /* Set CFG_PRT GPS or RTCM mode*/
-    uint16_t out_proto_mask = output_mode == OutputMode::GPS ?
+	unsigned baud_i;
+	ubx_payload_tx_cfg_prt_t cfg_prt[2];
+	uint16_t out_proto_mask = output_mode == OutputMode::GPS ?
 				  UBX_TX_CFG_PRT_OUTPROTOMASK_GPS :
 				  UBX_TX_CFG_PRT_OUTPROTOMASK_RTCM;
 	uint16_t in_proto_mask = output_mode == OutputMode::GPS ?
 				 UBX_TX_CFG_PRT_INPROTOMASK_GPS :
 				 UBX_TX_CFG_PRT_INPROTOMASK_RTCM;
-    
-    for (baud_i = 0; baud_i < sizeof(baudrates) / sizeof(baudrates[0]); baud_i++){
-        unsigned test_baudrate = baudrates[baud_i];
+	//FIXME: RTCM3 output needs at least protocol version 20. The protocol version can be checked via the version
+	//output:
+	//WARN  VER ext "                  PROTVER=20.00"
+	//However this is a string and it is not well documented, that PROTVER is always contained. Maybe there is a
+	//better way to check the protocol version?
 
-        printf("Baudrate is set to %i", test_baudrate);
+	for (baud_i = 0; baud_i < sizeof(baudrates) / sizeof(baudrates[0]); baud_i++) {
+		unsigned test_baudrate = baudrates[baud_i];
 
-        if (baudrate > 0 && baudrate != test_baudrate){
-            continue;   // skip to next baudrate
-        }
+		printf("baudrate set to %i", test_baudrate);
 
-        setBaudrate(test_baudrate);
+		if (baudrate > 0 && baudrate != test_baudrate) {
+			continue; // skip to next baudrate
+		}
 
-        /* reset all configuration on the module - this is necessary as some vendors
-		 * lock bad configurations
-		 */
-        ubx_payload_tx_cfg_cfg_t cfg_cfg = {};
-        // Clear settings
-        cfg_cfg.clearMask = ((1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) |
-					     (1 << 8) | (1 << 4) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
-        // Storage devices to apply this
+		setBaudrate(test_baudrate);
+
+		/* reset all configuration on the module - this is necessary as some vendors lock
+			* lock bad configurations
+			*/
+		ubx_payload_tx_cfg_cfg_t cfg_cfg = {};
+		cfg_cfg.clearMask = ((1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) |
+						(1 << 8) | (1 << 4) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
 		cfg_cfg.deviceMask = (1 << 2) | (1 << 1) | (1 << 0);
 
-        if (!sendMessage(UBX_MSG_CFG_CFG, (uint8_t *)&cfg_cfg, sizeof(ubx_payload_tx_cfg_cfg_t))) {
-				printf("cfg reset: UART TX failed");
-			}
+		if (!sendMessage(UBX_MSG_CFG_CFG, (uint8_t *)&cfg_cfg, sizeof(ubx_payload_tx_cfg_cfg_t))) {
+			printf("cfg reset: UART TX failed");
+		}
 
-			if (waitForAck(UBX_MSG_CFG_CFG, UBX_CONFIG_TIMEOUT, true) < 0) {
-				printf("cfg reset failed");
+		if (waitForAck(UBX_MSG_CFG_CFG, UBX_CONFIG_TIMEOUT, true) < 0) {
+			printf("cfg reset failed");
 
-			} else {
-				printf("cfg reset ACK");
-			}
-    }
+		} else {
+			printf("cfg reset ACK");
+		}
 
+		/* allow the module to re-initialize */
+		usleep(100000);
+
+		/* flush input and wait for at least 20 ms silence */
+		decodeInit();
+		receive(20);
+		decodeInit();
+
+		/* Send a CFG-PRT message to set the UBX protocol for in and out
+			* and leave the baudrate as it is, we just want an ACK-ACK for this */
+		memset(cfg_prt, 0, 2 * sizeof(ubx_payload_tx_cfg_prt_t));
+		cfg_prt[0].portID		= UBX_TX_CFG_PRT_PORTID;
+		cfg_prt[0].mode		= UBX_TX_CFG_PRT_MODE;
+		cfg_prt[0].baudRate	= test_baudrate;
+		cfg_prt[0].inProtoMask	= in_proto_mask;
+		cfg_prt[0].outProtoMask	= out_proto_mask;
+		cfg_prt[1].portID		= UBX_TX_CFG_PRT_PORTID_USB;
+		cfg_prt[1].mode		= UBX_TX_CFG_PRT_MODE;
+		cfg_prt[1].baudRate	= test_baudrate;
+		cfg_prt[1].inProtoMask	= in_proto_mask;
+		cfg_prt[1].outProtoMask	= out_proto_mask;
+
+		if (!sendMessage(UBX_MSG_CFG_PRT, (uint8_t *)cfg_prt, 2 * sizeof(ubx_payload_tx_cfg_prt_t))) {
+			continue;
+		}
+
+		if (waitForAck(UBX_MSG_CFG_PRT, UBX_CONFIG_TIMEOUT, false) < 0) {
+			/* try next baudrate */
+			continue;
+		}
+
+		/* Send a CFG-PRT message again, this time change the baudrate */
+		memset(cfg_prt, 0, 2 * sizeof(ubx_payload_tx_cfg_prt_t));
+		cfg_prt[0].portID		= UBX_TX_CFG_PRT_PORTID;
+		cfg_prt[0].mode		= UBX_TX_CFG_PRT_MODE;
+		cfg_prt[0].baudRate	= UBX_TX_CFG_PRT_BAUDRATE;
+		cfg_prt[0].inProtoMask	= in_proto_mask;
+		cfg_prt[0].outProtoMask	= out_proto_mask;
+		cfg_prt[1].portID		= UBX_TX_CFG_PRT_PORTID_USB;
+		cfg_prt[1].mode		= UBX_TX_CFG_PRT_MODE;
+		cfg_prt[1].baudRate	= UBX_TX_CFG_PRT_BAUDRATE;
+		cfg_prt[1].inProtoMask	= in_proto_mask;
+		cfg_prt[1].outProtoMask	= out_proto_mask;
+
+		if (!sendMessage(UBX_MSG_CFG_PRT, (uint8_t *)cfg_prt, 2 * sizeof(ubx_payload_tx_cfg_prt_t))) {
+			continue;
+		}
+
+		/* no ACK is expected here, but read the buffer anyway in case we actually get an ACK */
+		waitForAck(UBX_MSG_CFG_PRT, UBX_CONFIG_TIMEOUT, false);
+
+		if (UBX_TX_CFG_PRT_BAUDRATE != test_baudrate) {
+			setBaudrate(UBX_TX_CFG_PRT_BAUDRATE);
+		}
+
+		/* at this point we have correct baudrate on both ends */
+		baudrate = UBX_TX_CFG_PRT_BAUDRATE;
+		break;
+	}
+
+	if (baud_i >= sizeof(baudrates) / sizeof(baudrates[0])) {
+		return -1;	// connection and/or baudrate detection failed
+	}
+
+	/* Send a CFG-RATE message to define update rate */
+	memset(&_buf.payload_tx_cfg_rate, 0, sizeof(_buf.payload_tx_cfg_rate));
+	_buf.payload_tx_cfg_rate.measRate	= UBX_TX_CFG_RATE_MEASINTERVAL;
+	_buf.payload_tx_cfg_rate.navRate	= UBX_TX_CFG_RATE_NAVRATE;
+	_buf.payload_tx_cfg_rate.timeRef	= UBX_TX_CFG_RATE_TIMEREF;
+
+	if (!sendMessage(UBX_MSG_CFG_RATE, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_rate))) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_RATE, UBX_CONFIG_TIMEOUT, true) < 0) {
+		return -1;
+	}
+
+	if (output_mode != OutputMode::GPS) {
+		// RTCM mode force stationary dynamic model
+		_dyn_model = 2;
+	}
+
+	/* send a NAV5 message to set the options for the internal filter */
+	memset(&_buf.payload_tx_cfg_nav5, 0, sizeof(_buf.payload_tx_cfg_nav5));
+	_buf.payload_tx_cfg_nav5.mask		= UBX_TX_CFG_NAV5_MASK;
+	_buf.payload_tx_cfg_nav5.dynModel	= _dyn_model;
+	_buf.payload_tx_cfg_nav5.fixMode	= UBX_TX_CFG_NAV5_FIXMODE;
+
+	if (!sendMessage(UBX_MSG_CFG_NAV5, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_nav5))) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_NAV5, UBX_CONFIG_TIMEOUT, true) < 0) {
+		return -1;
+	}
+
+#ifdef UBX_CONFIGURE_SBAS
+	/* send a SBAS message to set the SBAS options */
+	memset(&_buf.payload_tx_cfg_sbas, 0, sizeof(_buf.payload_tx_cfg_sbas));
+	_buf.payload_tx_cfg_sbas.mode		= UBX_TX_CFG_SBAS_MODE;
+
+	if (!sendMessage(UBX_MSG_CFG_SBAS, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_sbas))) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_SBAS, UBX_CONFIG_TIMEOUT, true) < 0) {
+		return -1;
+	}
+
+#endif
+
+	/* configure message rates */
+	/* the last argument is divisor for measurement rate (set by CFG RATE), i.e. 1 means 5Hz */
+
+	/* try to set rate for NAV-PVT */
+	/* (implemented for ubx7+ modules only, use NAV-SOL, NAV-POSLLH, NAV-VELNED and NAV-TIMEUTC for ubx6) */
+	if (!configureMessageRate(UBX_MSG_NAV_PVT, 1)) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_MSG, UBX_CONFIG_TIMEOUT, true) < 0) {
+		_use_nav_pvt = false;
+
+	} else {
+		_use_nav_pvt = true;
+	}
+
+	printf("%susing NAV-PVT", _use_nav_pvt ? "" : "not ");
+
+	if (!_use_nav_pvt) {
+		if (!configureMessageRateAndAck(UBX_MSG_NAV_TIMEUTC, 5, true)) {
+			return -1;
+		}
+
+		if (!configureMessageRateAndAck(UBX_MSG_NAV_POSLLH, 1, true)) {
+			return -1;
+		}
+
+		if (!configureMessageRateAndAck(UBX_MSG_NAV_SOL, 1, true)) {
+			return -1;
+		}
+
+		if (!configureMessageRateAndAck(UBX_MSG_NAV_VELNED, 1, true)) {
+			return -1;
+		}
+	}
+
+	if (!configureMessageRateAndAck(UBX_MSG_NAV_DOP, 1, true)) {
+		return -1;
+	}
+
+	if (!configureMessageRateAndAck(UBX_MSG_NAV_SVINFO, (_satellite_info != nullptr) ? 5 : 0, true)) {
+		return -1;
+	}
+
+	if (!configureMessageRateAndAck(UBX_MSG_MON_HW, 1, true)) {
+		return -1;
+	}
+
+	/* request module version information by sending an empty MON-VER message */
+	if (!sendMessage(UBX_MSG_MON_VER, nullptr, 0)) {
+		return -1;
+	}
+
+	if (output_mode == OutputMode::RTCM) {
+		if (restartSurveyIn() < 0) {
+			return -1;
+		}
+	}
+
+	_configured = true;
+	return 0;
+}
+
+int UBXM8P::restartSurveyIn()
+{
+	if (_output_mode != OutputMode::RTCM) {
+		return -1;
+	}
+
+	//disable RTCM output
+	configureMessageRate(UBX_MSG_RTCM3_1005, 0);
+	configureMessageRate(UBX_MSG_RTCM3_1077, 0);
+	configureMessageRate(UBX_MSG_RTCM3_1087, 0);
+
+	//stop it first
+	//FIXME: stopping the survey-in process does not seem to work
+	memset(&_buf.payload_tx_cfg_tmode3, 0, sizeof(_buf.payload_tx_cfg_tmode3));
+	_buf.payload_tx_cfg_tmode3.flags        = 0; /* disable time mode */
+
+	if (!sendMessage(UBX_MSG_CFG_TMODE3, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_tmode3))) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_TMODE3, UBX_CONFIG_TIMEOUT, true) < 0) {
+		return -1;
+	}
+
+	printf("Starting Survey-in");
+
+	memset(&_buf.payload_tx_cfg_tmode3, 0, sizeof(_buf.payload_tx_cfg_tmode3));
+	_buf.payload_tx_cfg_tmode3.flags        = UBX_TX_CFG_TMODE3_FLAGS;
+	_buf.payload_tx_cfg_tmode3.svinMinDur   = _survey_in_min_dur;
+	_buf.payload_tx_cfg_tmode3.svinAccLimit = _survey_in_acc_limit;
+
+	if (!sendMessage(UBX_MSG_CFG_TMODE3, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_tmode3))) {
+		return -1;
+	}
+
+	if (waitForAck(UBX_MSG_CFG_TMODE3, UBX_CONFIG_TIMEOUT, true) < 0) {
+		return -1;
+	}
+
+	/* enable status output of survey-in */
+	if (!configureMessageRateAndAck(UBX_MSG_NAV_SVIN, 5, true)) {
+		return -1;
+	}
+
+	return 0;
 }
 
 void UBXM8P::setSurveySpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur)
@@ -148,6 +383,15 @@ void UBXM8P::setSurveySpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min
 int UBXM8P::setBaudrate(int baudrate)
 {
     return _callback(GPSCallbackType::setBaudrate, nullptr, baudrate, _callback_user);
+}
+
+bool UBXM8P::configureMessageRateAndAck(uint16_t msg, uint8_t rate, bool report_ack_error)
+{
+	if (!configureMessageRate(msg, rate)) {
+		return false;
+	}
+
+	return waitForAck(UBX_MSG_CFG_MSG, UBX_CONFIG_TIMEOUT, report_ack_error) >= 0;
 }
 
 bool UBXM8P::sendMessage(const uint16_t msg, const uint8_t *payload, const uint16_t length)
@@ -1093,4 +1337,10 @@ uint32_t UBXM8P::fnv1_32_str(uint8_t *str, uint32_t hval)
 
 	/* return our new hash value */
 	return hval;
+}
+
+void UBXM8P::setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur)
+{
+	_survey_in_acc_limit = survey_in_acc_limit;
+	_survey_in_min_dur = survey_in_min_dur;
 }
