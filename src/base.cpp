@@ -1,7 +1,10 @@
 /****************************************************************************
- *   Copyright (c) 2018 Yeap Bing Cheng. All rights reserved.
+ *   Copyright (C) Alexis Paques 2018. All rights reserved.
+ *
+ *   This work is based on Alexis Paques <alexis.paques@gmail.com> rtk_ros
+ *   https://github.com/AlexisTM/rtk_ros
+ *
  ****************************************************************************/
-
 /**
 * @file base.cpp
 *
@@ -53,12 +56,29 @@ void CorrectBase::serialConnect()
     //TODO: add exception and retries
 }
 
+CorrectBase::gpsConnect()
+{
+    // dynamic model
+    uint8_t stationary_model = 2;
+    printf("gpsConnect - Initialising GPS Driver");
+    gpsDriver = new UBXM8P(&callbackEntry, this, &reportGPSPos, pReportSatInfo, stationary_model);
+    printf("gpsConnect - Connected to GPS");
+    gpsDriver->setSurveyInSpecs(surveyAccuracy * 10000, surveyDuration);
+    printf("gpsConnect - Configured Survey In Specifications");
+    memset(&reportGPSPos, 0, sizeof(reportGPSPos)); // Reset report
+}
+
+CorrectBase::callbackEntry(GPSCallbackType type, void *data1, int data2, void *user)
+{
+    CorrectBase *base = (CorrectBase *)user;
+    return base;
+};
+
+
 /*
 CorrectBase::operateBase()
 CorrectBase::publishPosition()
 CorrectBase::publishSatellite()
-CorrectBase::gpsConnect()
 CorrectBase::publishRTCM()
-CorrectBase::callbackEntry()
 CorrectBase::callback()
 */

@@ -1,7 +1,10 @@
 /****************************************************************************
- *   Copyright (c) 2018 Yeap Bing Cheng. All rights reserved.
+ *   Copyright (C) Alexis Paques 2018. All rights reserved.
+ *
+ *   This work is based on Alexis Paques <alexis.paques@gmail.com> rtk_ros
+ *   https://github.com/AlexisTM/rtk_ros
+ *
  ****************************************************************************/
-
 /**
 * @file base.h
 *
@@ -21,17 +24,17 @@ public:
     ~CorrectBase();
 
     void serialConnect();
+    void gpsConnect();
     //void operateBase(){};
     //void publishPosition(){};
     //void publishSatellite(){};
-    //void gpsConnect();
     //void publishRTCM();
-    //void callbackEntry();
+    void callbackEntry();
     //void callback();
 
 private:
-    //struct vehicle_gps_position_s	reportGPSPos;
-	//struct satellite_info_s		*pReportSatInfo = nullptr;
+    struct vehicle_gps_position_s	reportGPSPos;
+	struct satellite_info_s		*pReportSatInfo = nullptr;
     LibSerial::SerialStream* serial = nullptr;
 
     std::string port;

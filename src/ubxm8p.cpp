@@ -34,7 +34,10 @@
 #define FNV1_32_INIT	((uint32_t)0x811c9dc5)	// init value for FNV1 hash algorithm
 #define FNV1_32_PRIME	((uint32_t)0x01000193)	// magic prime for FNV1 hash algorithm
 
-UBXM8P::UBXM8P()
+UBXM8P::UBXM8P(GPSCallbackPtr callback, void *callback_user,
+			   struct vehicle_gps_position_s *gps_position,
+			   struct satellite_info_s *satellite_info,
+			   uint8_t dynamic_model)
 : _survey_in_acc_limit(UBX_TX_CFG_TMODE3_SVINACCLIMIT)
 , _survey_in_min_dur(UBX_TX_CFG_TMODE3_SVINMINDUR)
 {
