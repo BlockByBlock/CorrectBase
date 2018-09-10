@@ -42,6 +42,7 @@ The major difference between DGNSS and RTK methods is the approach used to calcu
 - [Configuring GPS receiver](http://rtkexplorer.com/configuring-the-gps-receiver/)
 - [RTKexplorer - Getting Started](http://rtkexplorer.com/how-to/posts-getting-started/)
 - [PX4 - GPS Driver](https://github.com/PX4/GpsDrivers)
+- [KumarRobotics Ublox Driver](https://github.com/KumarRobotics/ublox)
 - [UBX-M8P-2 ROS-MAVROS](https://github.com/AlexisTM/rtk_ros)
 - [PX4 - RTK doc](https://dev.px4.io/en/advanced/rtk_gps.html)
 

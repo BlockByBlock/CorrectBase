@@ -13,6 +13,7 @@
 */
 #include <string>
 #include <SerialStream.h>
+#include "ubxm8p.h"
 
 #ifndef CORR_BASE_H_
 #define CORR_BASE_H_
@@ -25,16 +26,17 @@ public:
 
     void serialConnect();
     void gpsConnect();
-    //void operateBase(){};
-    //void publishPosition(){};
-    //void publishSatellite(){};
+    //void operateBase();
+    //void publishPosition();
+    //void publishSatellite();
     //void publishRTCM();
-    void callbackEntry();
+    //void callbackEntry();
     //void callback();
 
 private:
-    struct vehicle_gps_position_s	reportGPSPos;
-	struct satellite_info_s		*pReportSatInfo = nullptr;
+    struct vehicle_gps_position_s reportGPSPos;
+	struct satellite_info_s *pReportSatInfo = nullptr;
+    UBXM8P* gpsDriver = nullptr;
     LibSerial::SerialStream* serial = nullptr;
 
     std::string port;

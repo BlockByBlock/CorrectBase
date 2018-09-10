@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
     CorrectBase base;
     base.serialConnect();
-    // base.gpsConnect();
+    base.gpsConnect();
     // base.operateBase();
 
     return 0;

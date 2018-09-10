@@ -17,26 +17,33 @@
 
 using namespace LibSerial;
 
+// TODO: To pass the serial port on run time instead of compile time
 CorrectBase::CorrectBase()
-: port("/dev/ttyUSB0")
+: port("/dev/ttyACM0")
 , surveyAccuracy(5.0)
 , surveyDuration(90.0)
 , connected(false)
 {
     //surveyInStatus = new SurveyInStatus();
-    //pReportSatInfo = new satellite_info_s();
+    pReportSatInfo = new satellite_info_s();
 }
 
 CorrectBase::~CorrectBase()
 {
-    // TODO: delete dynamic GPS driver
-    
+    if (gpsDriver) {
+        delete gpsDriver;
+        gpsDriver = nullptr;
+    }
+
     if (serial) {
         delete serial;
         serial = nullptr;
     }
     
-    // TODO: delete dynamic reportsatinfo
+    if (pReportSatInfo) {
+        delete pReportSatInfo;
+        pReportSatInfo = nullptr;
+    }
 }
 
 void CorrectBase::serialConnect()
@@ -56,24 +63,24 @@ void CorrectBase::serialConnect()
     //TODO: add exception and retries
 }
 
-CorrectBase::gpsConnect()
+void CorrectBase::gpsConnect()
 {
-    // dynamic model
-    uint8_t stationary_model = 2;
-    printf("gpsConnect - Initialising GPS Driver");
-    gpsDriver = new UBXM8P(&callbackEntry, this, &reportGPSPos, pReportSatInfo, stationary_model);
-    printf("gpsConnect - Connected to GPS");
-    gpsDriver->setSurveyInSpecs(surveyAccuracy * 10000, surveyDuration);
-    printf("gpsConnect - Configured Survey In Specifications");
-    memset(&reportGPSPos, 0, sizeof(reportGPSPos)); // Reset report
+    uint8_t stationary_model = 2;   // dynamic model
+    printf("\ngpsConnect - Initialising GPS Driver\n");
+    gpsDriver = new UBXM8P(&reportGPSPos);
+    printf("\ngpsConnect - Connected to GPS\n");
+    //gpsDriver->setSurveyInSpecs(surveyAccuracy * 10000, surveyDuration);
+    //printf("gpsConnect - Configured Survey In Specifications");
+    //memset(&reportGPSPos, 0, sizeof(reportGPSPos)); // Reset report
 }
 
+/*
 CorrectBase::callbackEntry(GPSCallbackType type, void *data1, int data2, void *user)
 {
     CorrectBase *base = (CorrectBase *)user;
     return base;
-};
-
+}
+*/
 
 /*
 CorrectBase::operateBase()

@@ -640,10 +640,7 @@ public:
 	 *         bit 0 set: got gps position update
 	 *         bit 1 set: got satellite info update
 	 */
-    UBXM8P(GPSCallbackPtr callback, void *callback_user, 
-		   struct vehicle_gps_position_s *gps_position,
-		   struct satellite_info_s *satellite_info,
-		   uint8_t dynamic_model = 0);
+    UBXM8P(struct vehicle_gps_position_s *gps_position);
 
     ~UBXM8P();
 
