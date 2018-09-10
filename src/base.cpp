@@ -36,6 +36,7 @@ CorrectBase::~CorrectBase()
     }
 
     if (serial) {
+        serial->Close();
         delete serial;
         serial = nullptr;
     }
@@ -66,21 +67,18 @@ void CorrectBase::serialConnect()
 void CorrectBase::gpsConnect()
 {
     uint8_t stationary_model = 2;   // dynamic model
-    printf("\ngpsConnect - Initialising GPS Driver\n");
-    gpsDriver = new UBXM8P(&reportGPSPos);
-    printf("\ngpsConnect - Connected to GPS\n");
-    //gpsDriver->setSurveyInSpecs(surveyAccuracy * 10000, surveyDuration);
-    //printf("gpsConnect - Configured Survey In Specifications");
-    //memset(&reportGPSPos, 0, sizeof(reportGPSPos)); // Reset report
-}
+    printf("gpsConnect - Initialising GPS Driver\n");
+    gpsDriver = new UBXM8P(&reportGPSPos, stationary_model);
+    printf("gpsConnect - Connected to GPS\n");
+    gpsDriver->setSurveyInSpecs(surveyAccuracy * 10000, surveyDuration);
+    memset(&reportGPSPos, 0, sizeof(reportGPSPos)); // Reset report
 
-/*
-CorrectBase::callbackEntry(GPSCallbackType type, void *data1, int data2, void *user)
-{
-    CorrectBase *base = (CorrectBase *)user;
-    return base;
+    // Configuring GPS Driver
+    unsigned baud = 0;  // TODO: Synch baudrate BaudRate::BAUD and baud
+    printf("gpsConnect - Configuring GPS Driver ... ...\n");
+    gpsDriver->configure(baud, UBXM8P::OutputMode::RTCM) == 0;
+    printf("gpsConnect - GPS Driver Configuration Done!\n");
 }
-*/
 
 /*
 CorrectBase::operateBase()
@@ -88,4 +86,5 @@ CorrectBase::publishPosition()
 CorrectBase::publishSatellite()
 CorrectBase::publishRTCM()
 CorrectBase::callback()
+CorrectBase::callbackEntry()
 */

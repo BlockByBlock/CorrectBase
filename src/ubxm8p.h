@@ -640,7 +640,8 @@ public:
 	 *         bit 0 set: got gps position update
 	 *         bit 1 set: got satellite info update
 	 */
-    UBXM8P(struct vehicle_gps_position_s *gps_position);
+    UBXM8P(struct vehicle_gps_position_s *gps_position, 
+			uint8_t dynamic_model = 0);
 
     ~UBXM8P();
 
@@ -704,7 +705,9 @@ protected:
 	 */
 	int write(const void *buf, int buf_length)
 	{
-		return _callback(GPSCallbackType::writeDeviceData, (void *)buf, buf_length, _callback_user);
+		printf("Writing - THIS IS NOT RIGHT WITHOUT CALLBACK\n");
+		//return _callback(GPSCallbackType::writeDeviceData, (void *)buf, buf_length, _callback_user);
+		return buf_length;
 	}
 
     GPSCallbackPtr _callback{nullptr};
@@ -722,7 +725,8 @@ protected:
 	int read(uint8_t *buf, int buf_length, int timeout)
 	{
 		*((int *)buf) = timeout;
-		return _callback(GPSCallbackType::readDeviceData, buf, buf_length, _callback_user);
+		//return _callback(GPSCallbackType::readDeviceData, buf, buf_length, _callback_user);
+		printf("Read - THIS IS NOT RIGHT WITHOUT CALLBACK");
 	}
 
     /** got an RTCM message from the device */

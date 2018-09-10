@@ -34,10 +34,12 @@
 #define FNV1_32_INIT	((uint32_t)0x811c9dc5)	// init value for FNV1 hash algorithm
 #define FNV1_32_PRIME	((uint32_t)0x01000193)	// magic prime for FNV1 hash algorithm
 
-UBXM8P::UBXM8P(struct vehicle_gps_position_s *gps_position)
+UBXM8P::UBXM8P(struct vehicle_gps_position_s *gps_position, 
+				uint8_t dynamic_model)
 : _survey_in_acc_limit(UBX_TX_CFG_TMODE3_SVINACCLIMIT)
-, _gps_position(gps_position)
 , _survey_in_min_dur(UBX_TX_CFG_TMODE3_SVINMINDUR)
+, _gps_position(gps_position)
+, _dyn_model(dynamic_model)
 {
 	decodeInit();
 	// Not present in normal operation, unless for dual-antenna RTK units
@@ -90,7 +92,7 @@ int	UBXM8P::receive(unsigned timeout)
                 // DEBUG
 				//printf("parsed %d: 0x%x", i, buf[i]);
 			}
-
+			
 			return handled;
 		}
 
@@ -122,47 +124,44 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 	//WARN  VER ext "                  PROTVER=20.00"
 	//However this is a string and it is not well documented, that PROTVER is always contained. Maybe there is a
 	//better way to check the protocol version?
-
+	
 	for (baud_i = 0; baud_i < sizeof(baudrates) / sizeof(baudrates[0]); baud_i++) {
 		unsigned test_baudrate = baudrates[baud_i];
 
-		printf("baudrate set to %i", test_baudrate);
+		printf("baudrate set to %i\n", test_baudrate);
 
 		if (baudrate > 0 && baudrate != test_baudrate) {
 			continue; // skip to next baudrate
 		}
-
+		// Due to callback - Comment out for now
 		setBaudrate(test_baudrate);
-
+	
 		/* reset all configuration on the module - this is necessary as some vendors lock
-			* lock bad configurations
-			*/
+		 * lock bad configurations */
+			
 		ubx_payload_tx_cfg_cfg_t cfg_cfg = {};
 		cfg_cfg.clearMask = ((1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) |
 						(1 << 8) | (1 << 4) | (1 << 3) | (1 << 2) | (1 << 1) | (1 << 0));
 		cfg_cfg.deviceMask = (1 << 2) | (1 << 1) | (1 << 0);
-
-		if (!sendMessage(UBX_MSG_CFG_CFG, (uint8_t *)&cfg_cfg, sizeof(ubx_payload_tx_cfg_cfg_t))) {
-			printf("cfg reset: UART TX failed");
-		}
-
-		if (waitForAck(UBX_MSG_CFG_CFG, UBX_CONFIG_TIMEOUT, true) < 0) {
-			printf("cfg reset failed");
-
-		} else {
-			printf("cfg reset ACK");
-		}
-
-		/* allow the module to re-initialize */
+		
+		if (!sendMessage(UBX_MSG_CFG_CFG, (uint8_t *)&cfg_cfg, sizeof(ubx_payload_tx_cfg_cfg_t))) 
+			printf("cfg reset: UART TX failed\n");
+		
+		if (waitForAck(UBX_MSG_CFG_CFG, UBX_CONFIG_TIMEOUT, true) < 0) 
+			printf("cfg reset failed\n");
+		else 
+			printf("cfg reset ACK\n");
+		
+		// allow the module to re-initialize 
 		usleep(100000);
-
-		/* flush input and wait for at least 20 ms silence */
+	}
+		/* flush input and wait for at least 20 ms silence 
 		decodeInit();
 		receive(20);
 		decodeInit();
-
+		*/
 		/* Send a CFG-PRT message to set the UBX protocol for in and out
-			* and leave the baudrate as it is, we just want an ACK-ACK for this */
+			* and leave the baudrate as it is, we just want an ACK-ACK for this 
 		memset(cfg_prt, 0, 2 * sizeof(ubx_payload_tx_cfg_prt_t));
 		cfg_prt[0].portID		= UBX_TX_CFG_PRT_PORTID;
 		cfg_prt[0].mode		= UBX_TX_CFG_PRT_MODE;
@@ -173,18 +172,20 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 		cfg_prt[1].mode		= UBX_TX_CFG_PRT_MODE;
 		cfg_prt[1].baudRate	= test_baudrate;
 		cfg_prt[1].inProtoMask	= in_proto_mask;
-		cfg_prt[1].outProtoMask	= out_proto_mask;
+		cfg_prt[1].outProtoMask	= out_proto_mask; */
 
+		/*
 		if (!sendMessage(UBX_MSG_CFG_PRT, (uint8_t *)cfg_prt, 2 * sizeof(ubx_payload_tx_cfg_prt_t))) {
 			continue;
 		}
 
 		if (waitForAck(UBX_MSG_CFG_PRT, UBX_CONFIG_TIMEOUT, false) < 0) {
-			/* try next baudrate */
+			// try next baudrate 
 			continue;
 		}
+		*/
 
-		/* Send a CFG-PRT message again, this time change the baudrate */
+		/* Send a CFG-PRT message again, this time change the baudrate 
 		memset(cfg_prt, 0, 2 * sizeof(ubx_payload_tx_cfg_prt_t));
 		cfg_prt[0].portID		= UBX_TX_CFG_PRT_PORTID;
 		cfg_prt[0].mode		= UBX_TX_CFG_PRT_MODE;
@@ -201,23 +202,25 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 			continue;
 		}
 
-		/* no ACK is expected here, but read the buffer anyway in case we actually get an ACK */
+		// no ACK is expected here, but read the buffer anyway in case we actually get an ACK 
 		waitForAck(UBX_MSG_CFG_PRT, UBX_CONFIG_TIMEOUT, false);
 
 		if (UBX_TX_CFG_PRT_BAUDRATE != test_baudrate) {
 			setBaudrate(UBX_TX_CFG_PRT_BAUDRATE);
 		}
 
-		/* at this point we have correct baudrate on both ends */
+		// at this point we have correct baudrate on both ends 
 		baudrate = UBX_TX_CFG_PRT_BAUDRATE;
 		break;
-	}
-
+		
+	}*/
+	/*
 	if (baud_i >= sizeof(baudrates) / sizeof(baudrates[0])) {
 		return -1;	// connection and/or baudrate detection failed
 	}
+	*/
 
-	/* Send a CFG-RATE message to define update rate */
+	/* Send a CFG-RATE message to define update rate 
 	memset(&_buf.payload_tx_cfg_rate, 0, sizeof(_buf.payload_tx_cfg_rate));
 	_buf.payload_tx_cfg_rate.measRate	= UBX_TX_CFG_RATE_MEASINTERVAL;
 	_buf.payload_tx_cfg_rate.navRate	= UBX_TX_CFG_RATE_NAVRATE;
@@ -235,8 +238,8 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 		// RTCM mode force stationary dynamic model
 		_dyn_model = 2;
 	}
-
-	/* send a NAV5 message to set the options for the internal filter */
+	*/
+	/* send a NAV5 message to set the options for the internal filter 
 	memset(&_buf.payload_tx_cfg_nav5, 0, sizeof(_buf.payload_tx_cfg_nav5));
 	_buf.payload_tx_cfg_nav5.mask		= UBX_TX_CFG_NAV5_MASK;
 	_buf.payload_tx_cfg_nav5.dynModel	= _dyn_model;
@@ -249,9 +252,10 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 	if (waitForAck(UBX_MSG_CFG_NAV5, UBX_CONFIG_TIMEOUT, true) < 0) {
 		return -1;
 	}
+	*/
 
 #ifdef UBX_CONFIGURE_SBAS
-	/* send a SBAS message to set the SBAS options */
+	/* send a SBAS message to set the SBAS options 
 	memset(&_buf.payload_tx_cfg_sbas, 0, sizeof(_buf.payload_tx_cfg_sbas));
 	_buf.payload_tx_cfg_sbas.mode		= UBX_TX_CFG_SBAS_MODE;
 
@@ -262,14 +266,14 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 	if (waitForAck(UBX_MSG_CFG_SBAS, UBX_CONFIG_TIMEOUT, true) < 0) {
 		return -1;
 	}
-
+	*/
 #endif
 
-	/* configure message rates */
-	/* the last argument is divisor for measurement rate (set by CFG RATE), i.e. 1 means 5Hz */
+	/* configure message rates 
+	 * the last argument is divisor for measurement rate (set by CFG RATE), i.e. 1 means 5Hz 
 
-	/* try to set rate for NAV-PVT */
-	/* (implemented for ubx7+ modules only, use NAV-SOL, NAV-POSLLH, NAV-VELNED and NAV-TIMEUTC for ubx6) */
+	 * try to set rate for NAV-PVT 
+	 * (implemented for ubx7+ modules only, use NAV-SOL, NAV-POSLLH, NAV-VELNED and NAV-TIMEUTC for ubx6) 
 	if (!configureMessageRate(UBX_MSG_NAV_PVT, 1)) {
 		return -1;
 	}
@@ -312,8 +316,8 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 	if (!configureMessageRateAndAck(UBX_MSG_MON_HW, 1, true)) {
 		return -1;
 	}
-
-	/* request module version information by sending an empty MON-VER message */
+	*/
+	/* request module version information by sending an empty MON-VER message 
 	if (!sendMessage(UBX_MSG_MON_VER, nullptr, 0)) {
 		return -1;
 	}
@@ -325,6 +329,7 @@ int UBXM8P::configure(unsigned &baudrate, OutputMode output_mode)
 	}
 
 	_configured = true;
+	*/
 	return 0;
 }
 
@@ -383,7 +388,9 @@ void UBXM8P::setSurveySpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min
 
 int UBXM8P::setBaudrate(int baudrate)
 {
-    return _callback(GPSCallbackType::setBaudrate, nullptr, baudrate, _callback_user);
+	printf("Setting Baudrate - THIS IS NOT RIGHT WITHOUT CALLBACK\n");
+    //return _callback(GPSCallbackType::setBaudrate, nullptr, baudrate, _callback_user);
+	return baudrate;
 }
 
 bool UBXM8P::configureMessageRateAndAck(uint16_t msg, uint8_t rate, bool report_ack_error)
@@ -406,7 +413,7 @@ bool UBXM8P::sendMessage(const uint16_t msg, const uint8_t *payload, const uint1
 
     // Calculate checksum
 	calcChecksum(((uint8_t *)&header) + 2, sizeof(header) - 2, &checksum); // skip 2 sync bytes
-
+	
     if (payload != nullptr) {
 		calcChecksum(payload, length, &checksum);
 	}
@@ -415,7 +422,7 @@ bool UBXM8P::sendMessage(const uint16_t msg, const uint8_t *payload, const uint1
 	if (write((void *)&header, sizeof(header)) != sizeof(header)) {
 		return false;
 	}
-
+	
 	if (payload && write((void *)payload, length) != length) {
 		return false;
 	}
@@ -439,16 +446,16 @@ void UBXM8P::calcChecksum(const uint8_t *buffer, const uint16_t length, ubx_chec
 int UBXM8P::waitForAck(const uint16_t msg, const unsigned timeout, const bool report)
 {
 	int ret = -1;
-
+	
 	_ack_state = UBX_ACK_WAITING;
 	_ack_waiting_msg = msg;	// memorize sent msg class&ID for ACK check
-
+	
 	gps_abstime time_started = gps_absolute_time();
-
+	
 	while ((_ack_state == UBX_ACK_WAITING) && (gps_absolute_time() < time_started + timeout * 1000)) {
 		receive(timeout);
 	}
-
+	
 	if (_ack_state == UBX_ACK_GOT_ACK) {
 		ret = 0;	// ACK received ok
 
@@ -462,6 +469,7 @@ int UBXM8P::waitForAck(const uint16_t msg, const unsigned timeout, const bool re
 	}
 
 	_ack_state = UBX_ACK_IDLE;
+	
 	return ret;
 }
 
